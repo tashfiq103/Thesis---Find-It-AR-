@@ -12,6 +12,7 @@ public class MatchMakeManager : MonoBehaviour {
 	public struct GridType
 	{
 		public Sprite gridSprite;
+		public GameObject gridDestroyParticle;
 	}
 
 	[System.Serializable]
@@ -21,18 +22,46 @@ public class MatchMakeManager : MonoBehaviour {
 
 		[HideInInspector]
 		public GameObject gridObject;
+		[HideInInspector]
+		public GameObject gridDestroyParticle;
+
+		[HideInInspector]
+		public bool isGridSolved;
+
+		[HideInInspector]
+		public bool isGridAppearAnimationRunning;
+		[HideInInspector]
+		public bool isGridDisappearAnimationRunning;
+
+		[HideInInspector]
+		public float nextRotationTime;
+		[HideInInspector]
+		public int rotationCounter;
+
 	}
 
 	#endregion
 
 	#region PUBLIC VARIABLES
 
-	public Transform ARCamera;
+	public Camera defaultCamera;
 
 	[Header("Grid Property:")]
 	[Range(1,10)]
 	public float distanceAmongEachGridArea;
+	public Sprite defaultGridSprite;
 	public GameObject gridPrefab;
+
+	[Space]
+	[Header("--------------")]
+	[Tooltip("In MS (Milisecond)")]
+	[Range(0.0f,1000.0f)]
+	public float intervalOnEachRotation;
+	[Range(0.0f,360.0f)]
+	public float rotationAmount;
+	[Range(0,36)]
+	public int numberOfRotation;
+
 	[Header("--------------")]
 	public int row;
 	public int column;
@@ -48,7 +77,12 @@ public class MatchMakeManager : MonoBehaviour {
 	#region PRIVATE VARIABLES
 
 	private int mSizeOfTheGrid;
-	public GridAttributes[] mGridAttributes;
+	private GridAttributes[] mGridAttributes;
+
+	// GamePlay - Property
+	private bool mIsLookingForMatch;
+	private bool mResetRecentGrid;
+	private int mGridIndexOfFirstSelection = -1;
 
 	#endregion
 
@@ -60,68 +94,93 @@ public class MatchMakeManager : MonoBehaviour {
 
 	void Start(){
 
-		CreateGrid (row,column,focusGridType,percentage);
+		//CreateGrid (row,column,focusGridType,percentage);
 	}
 
 	void Update(){
 
-		transform.LookAt (ARCamera);
+		if (!GameManager.Instance.IsGamePaused ()) {
+		
+			mGridDetection ();
+			mGridAppearAnimation ();
+		}
 	}
 
 	#region PUBLIC FUNCTION
 
 	public void CreateGrid(int row, int column,int mGridType,float mAvailableTypesRatio){
 
-		int mGridIndex = 0;
+		if (!GameManager.Instance.IsMiniGameRunning ()) {
 
-		float mValueX = 0.0f;
-		float mValueY = 0.0f;
+			GameManager.Instance.SetMiniGameRunning ();
 
-		Vector3 mInitialPosition = Vector3.zero;
+			int mGridIndex = 0;
 
-		mSizeOfTheGrid = row * column;
+			float mValueX = 0.0f;
+			float mValueY = 0.0f;
 
-		mGridAttributes = new GridAttributes[mSizeOfTheGrid];
+			Vector3 mInitialPosition = Vector3.zero;
 
-		// If : GridSize -> Even Number
-		if (mSizeOfTheGrid % 2 == 0) {
+			mSizeOfTheGrid = row * column;
 
-			mValueX = ((column / 2.0f) - 0.5f) * distanceAmongEachGridArea;
-			mValueY = ((row / 2.0f) - 0.5f) * distanceAmongEachGridArea;
-			mInitialPosition = new Vector3 (-mValueX, mValueY, 0.0f);
-		} else { // If : GridSize -> Odd Number
+			mGridAttributes = new GridAttributes[mSizeOfTheGrid];
 
-			mValueX = (column/2) * distanceAmongEachGridArea;
-			mValueY = (row/2) * distanceAmongEachGridArea;
-			mInitialPosition = new Vector3 (-mValueX, mValueY, 0.0f);
-		}
+			// If : GridSize -> Even Number
+			if (mSizeOfTheGrid % 2 == 0) {
 
-		Vector3 mGridPosition = mInitialPosition;
+				mValueX = ((column / 2.0f) - 0.5f) * distanceAmongEachGridArea;
+				mValueY = ((row / 2.0f) - 0.5f) * distanceAmongEachGridArea;
+				mInitialPosition = new Vector3 (-mValueX, mValueY, 0.0f);
+			} else { // If : GridSize -> Odd Number
 
-		for (int i = 0; i < row; i++) {
+				mValueX = (column/2) * distanceAmongEachGridArea;
+				mValueY = (row/2) * distanceAmongEachGridArea;
+				mInitialPosition = new Vector3 (-mValueX, mValueY, 0.0f);
+			}
 
-			for (int j = 0; j < column; j++) {
+			Vector3 mGridPosition = mInitialPosition;
 
-				GameObject newGrid =  Instantiate (gridPrefab, mGridPosition, Quaternion.identity) as GameObject;
+			for (int i = 0; i < row; i++) {
 
-				mGridAttributes [mGridIndex].gridObject = newGrid;
+				for (int j = 0; j < column; j++) {
 
-				newGrid.name = "Grid (" + (mGridIndex++) + ")";
-				newGrid.transform.parent = transform;
+					GameObject newGrid =  Instantiate (gridPrefab, mGridPosition, Quaternion.identity) as GameObject;
+
+					mGridAttributes [mGridIndex].gridObject = newGrid;
+
+					newGrid.name = (mGridIndex++).ToString();
+					newGrid.transform.parent = transform;
+
+					mGridPosition = new Vector3 (
+						mGridPosition.x + distanceAmongEachGridArea,
+						mGridPosition.y,
+						mGridPosition.z);
+				}
 
 				mGridPosition = new Vector3 (
-					mGridPosition.x + distanceAmongEachGridArea,
-					mGridPosition.y,
+					mInitialPosition.x, 
+					mGridPosition.y - distanceAmongEachGridArea,
 					mGridPosition.z);
 			}
 
-			mGridPosition = new Vector3 (
-				mInitialPosition.x, 
-				mGridPosition.y - distanceAmongEachGridArea,
-				mGridPosition.z);
+			mAssignGridAttributes (mGridType,mAvailableTypesRatio);
+		}
+	}
+
+	public bool IsGameOver(){
+
+		int mSolveCounter = 0;
+
+		for (int i = 0; i < mGridAttributes.Length; i++) {
+		
+			if (mGridAttributes [i].isGridSolved)
+				mSolveCounter++;
 		}
 
-		mAssignGridAttributes (mGridType,mAvailableTypesRatio);
+		if (mSolveCounter == mGridAttributes.Length)
+			return true;
+		
+		return false;
 	}
 
 	#endregion
@@ -165,8 +224,7 @@ public class MatchMakeManager : MonoBehaviour {
 				if (mGridAttributes [mType1Position].gridType == -1) {
 				
 					mGridAttributes [mType1Position].gridType = mLocalGridType;
-					mGridAttributes [mType1Position].gridObject.GetComponent<SpriteRenderer> ().sprite =
-						ourGridType [mLocalGridType].gridSprite;
+					mGridAttributes [mType1Position].gridDestroyParticle = ourGridType [mLocalGridType].gridDestroyParticle;
 
 					int mType2Position = 0;
 					while (true) {
@@ -175,8 +233,7 @@ public class MatchMakeManager : MonoBehaviour {
 						if (mGridAttributes [mType2Position].gridType == -1) {
 						
 							mGridAttributes [mType2Position].gridType = mLocalGridType;
-							mGridAttributes [mType2Position].gridObject.GetComponent<SpriteRenderer> ().sprite =
-								ourGridType [mLocalGridType].gridSprite;
+							mGridAttributes [mType2Position].gridDestroyParticle = ourGridType [mLocalGridType].gridDestroyParticle;
 
 							mIsAssigned = true;
 							break;
@@ -189,6 +246,155 @@ public class MatchMakeManager : MonoBehaviour {
 			}
 		}
 
+	}
+
+	private void mGridDetection(){
+
+		#if UNITY_EDITOR
+
+		if (Input.GetMouseButtonDown(0)) {
+
+			Ray mRayCast = defaultCamera.ScreenPointToRay (Input.mousePosition);
+			RaycastHit mRayCastHit;
+
+			if (Physics.Raycast (mRayCast, out mRayCastHit)) {
+
+				if (mRayCastHit.collider.tag == "Grid") {
+
+					int mGridIndex = int.Parse(mRayCastHit.collider.name);
+
+					mGridAttributes [mGridIndex].gridObject.GetComponent<SpriteRenderer> ().sprite =
+						ourGridType [mGridAttributes [mGridIndex].gridType].gridSprite;
+
+					mGridAttributes [mGridIndex].nextRotationTime = Time.time;
+					mGridAttributes[mGridIndex].rotationCounter = 0;
+					mGridAttributes[mGridIndex].isGridAppearAnimationRunning = true;
+
+					if(!mIsLookingForMatch){
+
+						mGridIndexOfFirstSelection = mGridIndex;
+						mIsLookingForMatch = true;
+
+						mResetRecentGrid = false;
+
+					}else{
+
+						mGridDisappearAnimation(mGridIndex);
+						mIsLookingForMatch = false;
+					}
+				}
+			}
+		}
+
+		#else
+
+		if (Input.touchCount == 1 && Input.GetTouch (0).phase == TouchPhase.Began) {
+
+		Ray mRayCast = defaultCamera.ScreenPointToRay (Input.GetTouch (0).position);
+		RaycastHit mRayCastHit;
+
+		if (Physics.Raycast (mRayCast, out mRayCastHit)) {
+
+		if (mRayCastHit.collider.tag == "Grid") {
+
+		int mGridIndex = int.Parse(mRayCastHit.collider.name);
+
+		if(!mIsLookingForMatch){
+
+		mGridAttributes [mGridIndex].gridObject.GetComponent<SpriteRenderer> ().sprite =
+		ourGridType [mGridAttributes [mGridIndex].gridType].gridSprite;
+
+		mGridIndexOfFirstSelection = mGridIndex;
+		mIsLookingForMatch = true;
+		}else{
+
+		if(mGridAttributes[mGridIndexOfFirstSelection].gridType == mGridAttributes[mGridIndex].gridType){
+
+		mGridAttributes[mGridIndexOfFirstSelection].gridObject.SetActive(false);
+		mGridAttributes[mGridIndex].gridObject.SetActive(false);
+		}else{
+
+		mGridAttributes [mGridIndexOfFirstSelection].gridObject.GetComponent<SpriteRenderer> ().sprite = defaultGridSprite;
+		mGridAttributes [mGridIndex].gridObject.GetComponent<SpriteRenderer> ().sprite = defaultGridSprite;
+		}
+
+		mGridIndexOfFirstSelection = -1;
+		mIsLookingForMatch = false;
+		}
+		}
+		}
+		}
+
+		#endif
+
+	}
+
+	private void mGridAppearAnimation(){
+	
+		if (mGridAttributes != null) {
+
+			for (int i = 0; i < mGridAttributes.Length; i++) {
+
+				if (mGridAttributes [i].isGridAppearAnimationRunning) {
+
+					if (Time.time > mGridAttributes [i].nextRotationTime) {
+
+						mGridAttributes [i].gridObject.transform.Rotate (Vector2.up * rotationAmount );
+
+						mGridAttributes [i].nextRotationTime +=  intervalOnEachRotation/1000.0f;
+						mGridAttributes [i].rotationCounter++;
+
+						if (mGridAttributes [i].rotationCounter == numberOfRotation) {
+
+							mGridAttributes [i].isGridAppearAnimationRunning = false;
+							if (mResetRecentGrid) {
+
+								mGridAttributes [mGridIndexOfFirstSelection].gridObject.GetComponent<SpriteRenderer> ().sprite = defaultGridSprite;
+								mGridAttributes [i].gridObject.GetComponent<SpriteRenderer> ().sprite = defaultGridSprite;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	private void mGridDisappearAnimation(int mGridIndex){
+
+		if(mGridAttributes[mGridIndexOfFirstSelection].gridType == mGridAttributes[mGridIndex].gridType){
+
+			GameObject newDestroyParticle = Instantiate(
+				mGridAttributes[mGridIndexOfFirstSelection].gridDestroyParticle,
+				mGridAttributes[mGridIndexOfFirstSelection].gridObject.transform.position,
+				Quaternion.identity);
+
+			newDestroyParticle.GetComponent<SelfDestroyerWithTimer>().DestroyGameObject(3.0f);
+
+			newDestroyParticle = Instantiate(
+				mGridAttributes[mGridIndex].gridDestroyParticle,
+				mGridAttributes[mGridIndex].gridObject.transform.position,
+				Quaternion.identity);
+
+			newDestroyParticle.GetComponent<SelfDestroyerWithTimer>().DestroyGameObject(3.0f);
+
+			mGridAttributes[mGridIndexOfFirstSelection].isGridSolved = true;
+			mGridAttributes[mGridIndex].isGridSolved = true;
+
+			mGridAttributes[mGridIndexOfFirstSelection].gridObject.SetActive(false);
+			mGridAttributes[mGridIndex].gridObject.SetActive(false);
+
+			if (IsGameOver ())
+				mPostGameOver ();
+			
+		}else{
+
+			mResetRecentGrid = true;
+		}
+	}
+
+	private void mPostGameOver(){
+
+		GameManager.Instance.SetMiniGameNotRunning ();
 	}
 
 	#endregion
