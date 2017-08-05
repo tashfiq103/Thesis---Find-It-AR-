@@ -63,8 +63,10 @@ public class MatchMakeManager : MonoBehaviour {
 	public int numberOfRotation;
 
 	[Header("--------------")]
-	public int row;
-	public int column;
+	public int baseRow;
+	public int baseColumn;
+	[Range(0,10)]
+	public int highestDifficultyLevel;
 	public int focusGridType;
 	[Range(0.0f,100.0f)]
 	public float percentage;
@@ -76,6 +78,11 @@ public class MatchMakeManager : MonoBehaviour {
 
 	#region PRIVATE VARIABLES
 
+	private const string mRow = "MatchMake_RowNumber";
+	private const string mColumn = "MatchMake_ColumnNumber";
+	private const string mCurrentDifficultyLevel = "MatchMake_DifficultyLevel";
+
+	private int mGridType;
 	private int mSizeOfTheGrid;
 	private GridAttributes[] mGridAttributes;
 
@@ -90,6 +97,12 @@ public class MatchMakeManager : MonoBehaviour {
 
 		if (Instance == null)
 			Instance = this.GetComponent<MatchMakeManager> ();
+
+		if (PlayerPrefs.GetInt (mRow) != baseRow)
+			PlayerPrefs.SetInt (mRow, baseRow);
+
+		if (PlayerPrefs.GetInt (mColumn) != baseColumn)
+			PlayerPrefs.SetInt (mColumn, baseColumn);
 	}
 
 	void Start(){
@@ -108,7 +121,12 @@ public class MatchMakeManager : MonoBehaviour {
 
 	#region PUBLIC FUNCTION
 
-	public void CreateGrid(int row, int column,int mGridType,float mAvailableTypesRatio){
+	public void SetGridType(int mGridType){
+
+		this.mGridType = mGridType;
+	}
+
+	public void CreateGrid(){
 
 		if (!GameManager.Instance.IsMiniGameRunning ()) {
 
@@ -121,28 +139,28 @@ public class MatchMakeManager : MonoBehaviour {
 
 			Vector3 mInitialPosition = Vector3.zero;
 
-			mSizeOfTheGrid = row * column;
+			mSizeOfTheGrid = PlayerPrefs.GetInt(mRow) * PlayerPrefs.GetInt(mColumn);
 
 			mGridAttributes = new GridAttributes[mSizeOfTheGrid];
 
 			// If : GridSize -> Even Number
 			if (mSizeOfTheGrid % 2 == 0) {
 
-				mValueX = ((column / 2.0f) - 0.5f) * distanceAmongEachGridArea;
-				mValueY = ((row / 2.0f) - 0.5f) * distanceAmongEachGridArea;
+				mValueX = ((PlayerPrefs.GetInt(mColumn) / 2.0f) - 0.5f) * distanceAmongEachGridArea;
+				mValueY = ((PlayerPrefs.GetInt(mRow) / 2.0f) - 0.5f) * distanceAmongEachGridArea;
 				mInitialPosition = new Vector3 (-mValueX, mValueY, 0.0f);
 			} else { // If : GridSize -> Odd Number
 
-				mValueX = (column/2) * distanceAmongEachGridArea;
-				mValueY = (row/2) * distanceAmongEachGridArea;
+				mValueX = (PlayerPrefs.GetInt(mColumn)/2) * distanceAmongEachGridArea;
+				mValueY = (PlayerPrefs.GetInt(mRow)/2) * distanceAmongEachGridArea;
 				mInitialPosition = new Vector3 (-mValueX, mValueY, 0.0f);
 			}
 
 			Vector3 mGridPosition = mInitialPosition;
 
-			for (int i = 0; i < row; i++) {
+			for (int i = 0; i < PlayerPrefs.GetInt(mRow); i++) {
 
-				for (int j = 0; j < column; j++) {
+				for (int j = 0; j < PlayerPrefs.GetInt(mColumn); j++) {
 
 					GameObject newGrid =  Instantiate (gridPrefab, mGridPosition, Quaternion.identity) as GameObject;
 
@@ -163,7 +181,42 @@ public class MatchMakeManager : MonoBehaviour {
 					mGridPosition.z);
 			}
 
-			mAssignGridAttributes (mGridType,mAvailableTypesRatio);
+			mAssignGridAttributes (mGridType,percentage);
+		}
+	}
+
+	public void IncreaseDifficultyLevel(){
+	
+		if (PlayerPrefs.GetInt (mCurrentDifficultyLevel, 0) < highestDifficultyLevel) {
+
+			int mCurrentGridSize = PlayerPrefs.GetInt (mRow) * PlayerPrefs.GetInt (mColumn);
+			int mNextGridSize = mCurrentGridSize + 4;
+
+			int mLoopCounter = Mathf.Max (PlayerPrefs.GetInt (mRow), PlayerPrefs.GetInt (mColumn)) + 2;
+
+			for (int i = 0; i < mLoopCounter; i++) {
+
+				for (int j = 0; j < mLoopCounter; j++) {
+
+					if (i * j == mNextGridSize) {
+
+						PlayerPrefs.SetInt (mRow, j);
+						PlayerPrefs.SetInt (mColumn, i);
+						Debug.Log ("New Grid ("
+						+ PlayerPrefs.GetInt (mRow)
+						+ ","
+						+ PlayerPrefs.GetInt (mColumn)
+						+ ")");
+						break;
+					}
+				}
+			}
+
+			PlayerPrefs.SetInt(
+				mCurrentDifficultyLevel,
+				PlayerPrefs.GetInt(mCurrentDifficultyLevel) + 1);
+
+			Debug.Log ("Current Difficulty Level : " + PlayerPrefs.GetInt (mCurrentDifficultyLevel));
 		}
 	}
 

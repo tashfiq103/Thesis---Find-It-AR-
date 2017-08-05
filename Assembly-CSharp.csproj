@@ -81,11 +81,14 @@
      <Compile Include="Assets\Vuforia\Scripts\WireframeBehaviour.cs" />
      <Compile Include="Assets\Vuforia\Scripts\WireframeTrackableEventHandler.cs" />
      <Compile Include="Assets\Vuforia\Scripts\WordBehaviour.cs" />
-     <Compile Include="Assets\_Developer\Scripts\GameMechanics\AREventHandler.cs" />
+     <Compile Include="Assets\_Developer\Scripts\AR\AREventHandler.cs" />
+     <Compile Include="Assets\_Developer\Scripts\AR\ARTargetHandler.cs" />
+     <Compile Include="Assets\_Developer\Scripts\Custom Effect\GlowEffect.cs" />
+     <Compile Include="Assets\_Developer\Scripts\Custom Effect\Rotation.cs" />
      <Compile Include="Assets\_Developer\Scripts\GameMechanics\SelfDestroyerWithTimer.cs" />
      <Compile Include="Assets\_Developer\Scripts\GameMode\MatchMaker\MatchMakeManager.cs" />
      <Compile Include="Assets\_Developer\Scripts\Manager\GameManager.cs" />
-     <Compile Include="Assets\_Developer\Scripts\Manager\GridProperty.cs" />
+     <Compile Include="Assets\_Developer\Scripts\Manager\MiniGameManager.cs" />
      <None Include="Assets\Plugins\Android\AndroidManifest.xml" />
      <None Include="Assets\Vuforia\Shaders\ColoredLines.shader" />
      <None Include="Assets\link.xml" />

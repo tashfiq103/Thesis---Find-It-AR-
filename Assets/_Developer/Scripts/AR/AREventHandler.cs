@@ -1,9 +1,22 @@
 ﻿using UnityEngine;
+using UnityEngine.Events;
 using Vuforia;
 
 public class AREventHandler : MonoBehaviour,ITrackableEventHandler {
 
+	#region PUBLIC - variables
+
+	public UnityEvent OnTrackerFoundEvent;
+	[Space]
+	public UnityEvent OnTrackerLostEvent;
+
+	#endregion
+
+	#region PRIVATE - variables
+
 	private TrackableBehaviour mTrackableBehaviour;
+
+	#endregion
 
 	// Use this for initialization
 	void Start () {
@@ -47,6 +60,8 @@ public class AREventHandler : MonoBehaviour,ITrackableEventHandler {
 		}
 
 		Debug.Log("Trackable " + mTrackableBehaviour.TrackableName + " found");
+
+		OnTrackerFoundEvent.Invoke ();
 	}
 
 	private void OnTrackingLost(){
@@ -67,5 +82,7 @@ public class AREventHandler : MonoBehaviour,ITrackableEventHandler {
 		}
 
 		Debug.Log("Trackable " + mTrackableBehaviour.TrackableName + " lost");
+
+		OnTrackerLostEvent.Invoke ();
 	}
 }
